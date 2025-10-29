@@ -6,7 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -43,14 +45,22 @@ public class UsuarioController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUsuario(@PathVariable Integer id) {
-        usuarioService.deleteUsuario(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Map<String, String>> deleteUsuario(@PathVariable Integer id) {
+        Optional<Usuario> usuario = usuarioService.getUsuarioById(id);
+        Map<String, String> response = new HashMap<>();
+        if (usuario.isPresent()) {
+            usuarioService.deleteUsuario(id);
+            response.put("mensaje", "Usuario eliminado correctamente");
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("error", "Usuario no encontrado");
+            return ResponseEntity.status(404).body(response);
+        }
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Usuario> login(@RequestParam String email, @RequestParam String password) {
-        Optional<Usuario> usuario = usuarioService.login(email, password);
+    public ResponseEntity<Usuario> login(@RequestBody com.ignacio.fs3_lab_usuarios.model.LoginRequest loginRequest) {
+        Optional<Usuario> usuario = usuarioService.login(loginRequest.getEmail(), loginRequest.getPassword());
         return usuario.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.status(401).build());
     }
 }
