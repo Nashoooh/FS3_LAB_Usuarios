@@ -149,4 +149,52 @@ public class UsuarioController {
             return ResponseEntity.status(401).body(error);
         }
     }
+    
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(@RequestBody com.ignacio.fs3_lab_usuarios.model.ChangePasswordRequest request) {
+        Map<String, String> response = new HashMap<>();
+        
+        if (request.getEmail() == null || request.getEmail().isEmpty()) {
+            response.put("error", "El email es requerido");
+            return ResponseEntity.status(400).body(response);
+        }
+        
+        if (request.getNewPassword() == null || request.getNewPassword().isEmpty()) {
+            response.put("error", "La nueva contraseña es requerida");
+            return ResponseEntity.status(400).body(response);
+        }
+        
+        boolean success = usuarioService.changePassword(request.getEmail(), request.getNewPassword());
+        
+        if (success) {
+            response.put("mensaje", "Contraseña actualizada correctamente");
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("error", "Usuario no encontrado con ese email");
+            return ResponseEntity.status(404).body(response);
+        }
+    }
+    
+    @PostMapping("/verify-email")
+    public ResponseEntity<Map<String, Object>> verifyEmail(@RequestBody Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+        String email = request.get("email");
+        
+        if (email == null || email.isEmpty()) {
+            response.put("exists", false);
+            response.put("error", "El email es requerido");
+            return ResponseEntity.status(400).body(response);
+        }
+        
+        Optional<Usuario> usuario = usuarioService.findByEmail(email);
+        
+        if (usuario.isPresent()) {
+            response.put("exists", true);
+            response.put("email", email);
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("exists", false);
+            return ResponseEntity.status(404).body(response);
+        }
+    }
 }

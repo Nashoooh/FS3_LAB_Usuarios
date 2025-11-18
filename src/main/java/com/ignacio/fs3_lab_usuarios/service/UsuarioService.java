@@ -74,4 +74,19 @@ public class UsuarioService {
         }
         return Optional.empty();
     }
+    
+    public boolean changePassword(String email, String newPassword) {
+        Optional<Usuario> usuario = usuarioRepository.findByEmail(email);
+        if (usuario.isPresent()) {
+            Usuario user = usuario.get();
+            user.setPassword(passwordEncoder.encode(newPassword));
+            usuarioRepository.save(user);
+            return true;
+        }
+        return false;
+    }
+    
+    public Optional<Usuario> findByEmail(String email) {
+        return usuarioRepository.findByEmail(email);
+    }
 }
