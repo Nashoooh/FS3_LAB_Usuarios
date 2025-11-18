@@ -5,6 +5,7 @@ import com.ignacio.fs3_lab_usuarios.repository.UsuarioRepository;
 import com.ignacio.fs3_lab_usuarios.repository.PrevisionRepository;
 import com.ignacio.fs3_lab_usuarios.repository.RolRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +19,8 @@ public class UsuarioService {
     private PrevisionRepository previsionRepository;
     @Autowired
     private RolRepository rolRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     public List<Usuario> getAllUsuarios() {
         return usuarioRepository.findAll();
@@ -34,6 +37,15 @@ public class UsuarioService {
         if (usuario.getRol() != null && usuario.getRol().getId() != null) {
             usuario.setRol(rolRepository.findById(usuario.getRol().getId()).orElse(null));
         }
+        
+        // Si es una actualización y la contraseña es null, mantener la contraseña existente
+        if (usuario.getId() != null && usuario.getPassword() == null) {
+            Optional<Usuario> usuarioExistente = usuarioRepository.findById(usuario.getId());
+            if (usuarioExistente.isPresent()) {
+                usuario.setPassword(usuarioExistente.get().getPassword());
+            }
+        }
+        
         // Validación de rut único
         Optional<Usuario> existenteRut = usuarioRepository.findByRut(usuario.getRut());
         if (existenteRut.isPresent() && (usuario.getId() == null || !existenteRut.get().getId().equals(usuario.getId()))) {
@@ -44,6 +56,10 @@ public class UsuarioService {
         if (existenteEmail.isPresent() && (usuario.getId() == null || !existenteEmail.get().getId().equals(usuario.getId()))) {
             throw new RuntimeException("El email ya está registrado");
         }
+        // Encriptar contraseña si es un usuario nuevo o si la contraseña cambió
+        if (usuario.getPassword() != null && (usuario.getId() == null || !usuario.getPassword().startsWith("$2a$"))) {
+            usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+        }
         return usuarioRepository.save(usuario);
     }
 
@@ -53,7 +69,7 @@ public class UsuarioService {
 
     public Optional<Usuario> login(String email, String password) {
         Optional<Usuario> usuario = usuarioRepository.findByEmail(email);
-        if (usuario.isPresent() && usuario.get().getPassword().equals(password)) {
+        if (usuario.isPresent() && passwordEncoder.matches(password, usuario.get().getPassword())) {
             return usuario;
         }
         return Optional.empty();

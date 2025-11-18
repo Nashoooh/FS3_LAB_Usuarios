@@ -1,7 +1,9 @@
 package com.ignacio.fs3_lab_usuarios.controller;
 
+import com.ignacio.fs3_lab_usuarios.model.LoginResponse;
 import com.ignacio.fs3_lab_usuarios.model.Usuario;
 import com.ignacio.fs3_lab_usuarios.service.UsuarioService;
+import com.ignacio.fs3_lab_usuarios.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,32 +18,52 @@ import java.util.Optional;
 public class UsuarioController {
     @Autowired
     private UsuarioService usuarioService;
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @GetMapping
-    public List<Usuario> getAllUsuarios() {
-        return usuarioService.getAllUsuarios();
+    public ResponseEntity<List<Map<String, Object>>> getAllUsuarios() {
+        List<Usuario> usuarios = usuarioService.getAllUsuarios();
+        List<Map<String, Object>> response = usuarios.stream().map(this::usuarioSinPassword).toList();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Usuario> getUsuarioById(@PathVariable Integer id) {
+    public ResponseEntity<Map<String, Object>> getUsuarioById(@PathVariable Integer id) {
         Optional<Usuario> usuario = usuarioService.getUsuarioById(id);
-        return usuario.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        return usuario.map(user -> ResponseEntity.ok(usuarioSinPassword(user)))
+                      .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public Usuario createUsuario(@RequestBody Usuario usuario) {
-        return usuarioService.saveUsuario(usuario);
+    public ResponseEntity<Map<String, Object>> createUsuario(@RequestBody Usuario usuario) {
+        Usuario savedUser = usuarioService.saveUsuario(usuario);
+        return ResponseEntity.ok(usuarioSinPassword(savedUser));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Usuario> updateUsuario(@PathVariable Integer id, @RequestBody Usuario usuario) {
+    public ResponseEntity<Map<String, Object>> updateUsuario(@PathVariable Integer id, @RequestBody Usuario usuario) {
         Optional<Usuario> usuarioExistente = usuarioService.getUsuarioById(id);
         if (usuarioExistente.isPresent()) {
             usuario.setId(id);
-            return ResponseEntity.ok(usuarioService.saveUsuario(usuario));
+            Usuario updatedUser = usuarioService.saveUsuario(usuario);
+            return ResponseEntity.ok(usuarioSinPassword(updatedUser));
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+    
+    private Map<String, Object> usuarioSinPassword(Usuario usuario) {
+        Map<String, Object> userMap = new HashMap<>();
+        userMap.put("id", usuario.getId());
+        userMap.put("nombre", usuario.getNombre());
+        userMap.put("rut", usuario.getRut());
+        userMap.put("fechaNacimiento", usuario.getFechaNacimiento());
+        userMap.put("email", usuario.getEmail());
+        userMap.put("activo", usuario.getActivo());
+        userMap.put("prevision", usuario.getPrevision());
+        userMap.put("rol", usuario.getRol());
+        return userMap;
     }
 
     @DeleteMapping("/{id}")
@@ -59,8 +81,72 @@ public class UsuarioController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Usuario> login(@RequestBody com.ignacio.fs3_lab_usuarios.model.LoginRequest loginRequest) {
+    public ResponseEntity<?> login(@RequestBody com.ignacio.fs3_lab_usuarios.model.LoginRequest loginRequest) {
         Optional<Usuario> usuario = usuarioService.login(loginRequest.getEmail(), loginRequest.getPassword());
-        return usuario.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.status(401).build());
+        if (usuario.isPresent()) {
+            Usuario user = usuario.get();
+            String token = jwtUtil.generateToken(
+                user.getId(),
+                user.getEmail(),
+                user.getNombre(),
+                user.getRut(),
+                user.getRol().getId(),
+                user.getRol().getNombre()
+            );
+            
+            LoginResponse response = new LoginResponse(
+                token,
+                user.getId(),
+                user.getEmail(),
+                user.getNombre(),
+                user.getRut(),
+                user.getRol().getId(),
+                user.getRol().getNombre()
+            );
+            
+            return ResponseEntity.ok(response);
+        } else {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Credenciales inválidas");
+            return ResponseEntity.status(401).body(error);
+        }
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            if (!jwtUtil.isTokenValid(token)) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Token inválido o expirado");
+                return ResponseEntity.status(401).body(error);
+            }
+            
+            Integer userId = jwtUtil.extractUserId(token);
+            Optional<Usuario> usuario = usuarioService.getUsuarioById(userId);
+            
+            if (usuario.isPresent()) {
+                Usuario user = usuario.get();
+                Map<String, Object> response = new HashMap<>();
+                response.put("id", user.getId());
+                response.put("nombre", user.getNombre());
+                response.put("rut", user.getRut());
+                response.put("email", user.getEmail());
+                response.put("fechaNacimiento", user.getFechaNacimiento());
+                response.put("activo", user.getActivo());
+                response.put("rol", user.getRol());
+                response.put("prevision", user.getPrevision());
+                
+                return ResponseEntity.ok(response);
+            } else {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Usuario no encontrado");
+                return ResponseEntity.status(404).body(error);
+            }
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Token inválido");
+            return ResponseEntity.status(401).body(error);
+        }
     }
 }
