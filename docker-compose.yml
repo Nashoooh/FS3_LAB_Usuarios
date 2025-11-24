@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  usuarios-service:
+    build: .
+    container_name: fs3_lab_usuarios
+    ports:
+      - "9000:9000"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://190.107.177.36:3306/cna109955_libreria
+      - SPRING_DATASOURCE_USERNAME=cna109955_admin
+      - SPRING_DATASOURCE_PASSWORD=Terry.1078
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=none
+      - SPRING_JPA_SHOW_SQL=true
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
