@@ -17,7 +17,7 @@ WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
 # Exponer el puerto 9000
-EXPOSE 9000
+EXPOSE 9200
 
 # Variables de entorno (pueden ser sobrescritas)
 ENV SPRING_DATASOURCE_URL=jdbc:mysql://190.107.177.36:3306/cna109955_libreria
