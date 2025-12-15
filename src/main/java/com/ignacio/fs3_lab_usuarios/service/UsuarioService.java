@@ -89,4 +89,10 @@ public class UsuarioService {
     public Optional<Usuario> findByEmail(String email) {
         return usuarioRepository.findByEmail(email);
     }
+    
+    public List<Usuario> getPacientes() {
+        return usuarioRepository.findAll().stream()
+                .filter(usuario -> usuario.getRol() != null && usuario.getRol().getId() == 1)
+                .toList();
+    }
 }

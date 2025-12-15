@@ -197,4 +197,11 @@ public class UsuarioController {
             return ResponseEntity.status(404).body(response);
         }
     }
+    
+    @GetMapping("/pacientes")
+    public ResponseEntity<List<Map<String, Object>>> getPacientes() {
+        List<Usuario> pacientes = usuarioService.getPacientes();
+        List<Map<String, Object>> response = pacientes.stream().map(this::usuarioSinPassword).toList();
+        return ResponseEntity.ok(response);
+    }
 }
